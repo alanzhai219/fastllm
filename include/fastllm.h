@@ -176,7 +176,14 @@ namespace fastllm {
     };
 
     enum DataType {
-        FLOAT32 = 0, BFLOAT16 = 1, INT16 = 2, INT8 = 3, INT4 = 4, INT2 = 5, BIT = 6, FLOAT16 = 7,
+        FLOAT32 = 0,
+        BFLOAT16 = 1,
+        INT16 = 2,
+        INT8 = 3,
+        INT4 = 4,
+        INT2 = 5,
+        BIT = 6,
+        FLOAT16 = 7,
         INT4_NOZERO = 8, // 不用zeroPoint的int4, floatValue = min + uint4Value * scale
         INT4_GROUP = 9, // 不用zeroPoint的int4, floatValue = min + uint4Value * scale, 且使用分组量化
         INT32PARAM = 100, // int32的参数，这种类型的数据永远存在CPU上
@@ -184,7 +191,9 @@ namespace fastllm {
     };
 
     enum DataDevice {
-        CPU = 0, CUDA = 1
+        CPU = 0,
+        CUDA = 1,
+        SYCL = 2
     };
 
     enum WeightType {
@@ -224,6 +233,7 @@ namespace fastllm {
         const char *ptr;
     };
 
+    // generic base data holder structure like Tensor
     class Data {
     public:
         bool isFake = false; // 没有创建空间，指向别的data（无需销毁）
@@ -245,9 +255,14 @@ namespace fastllm {
         std::vector <int> expansionDims; // 预扩容的形状
         uint8_t *cpuData = nullptr; // 数据指针
 
+        // cuda ptr
 	    void *cudaData = nullptr;
         std::vector <void*> extraCudaData;
         std::vector <void*> extraCudaHalfData;
+
+        // sycl ptr
+        void *syclData = nullptr;
+        std::vector <void*> extraSyclData;
 
         void *deviceData = nullptr;
         std::vector <void*> extraDeviceData;
@@ -500,7 +515,7 @@ namespace fastllm {
         WeightType GetWeightType(const std::string &key); // 获取某个权重的类型（若未判断出来，则为None)
 
         Data &operator [] (const std::string &key);
-    };
+    }; // end of weightMap
 
     void *GetExecutor();
 
