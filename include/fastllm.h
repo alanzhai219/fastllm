@@ -169,17 +169,28 @@ namespace fastllm {
     };
 
     enum DataType {
-        FLOAT32 = 0, BFLOAT16 = 1, INT16 = 2, INT8 = 3, INT4 = 4, INT2 = 5, BIT = 6, FLOAT16 = 7,
+        FLOAT32 = 0,
+        BFLOAT16 = 1,
+        INT16 = 2,
+        INT8 = 3,
+        INT4 = 4,
+        INT2 = 5,
+        BIT = 6,
+        FLOAT16 = 7,
         INT4_NOZERO = 8, // 不用zeroPoint的int4, floatValue = min + uint4Value * scale
         INT32PARAM = 100 // int32的参数，这种类型的数据永远存在CPU上
     };
 
     enum DataDevice {
-        CPU = 0, CUDA = 1
+        CPU = 0,
+        CUDA = 1,
+        SYCL = 2
     };
 
     enum WeightType {
-        NONE = 0, LINEAR = 1, EMBEDDING = 2
+        NONE = 0,
+        LINEAR = 1,
+        EMBEDDING = 2
     };
 
     struct FileMmap {
@@ -215,6 +226,7 @@ namespace fastllm {
         const char *ptr;
     };
 
+    // generic base data holder structure like Tensor
     class Data {
     public:
         bool lockInCPU = false; // 如果lock在CPU上，那么不允许移动到其余设备
@@ -231,8 +243,13 @@ namespace fastllm {
         std::vector <int> expansionDims; // 预扩容的形状
         uint8_t *cpuData = nullptr; // 数据指针
 
+        // cuda ptr
 	    void *cudaData = nullptr;
         std::vector <void*> extraCudaData;
+
+        // sycl ptr
+        void *syclData = nullptr;
+        std::vector <void*> extraSyclData;
 
         void *deviceData = nullptr;
         std::vector <void*> extraDeviceData;
@@ -306,7 +323,7 @@ namespace fastllm {
         void SetMapFile(std::shared_ptr<FileMmap> file) {
         	mapFile = file;
         }
-    };
+    }; // end of Data
 
     struct Tokenizer {
         enum TokenizerType {
@@ -385,7 +402,7 @@ namespace fastllm {
         std::string Decode(const Data &data); // 解码
 
         std::string DecodeTokens(const std::vector <int> &tokens); // 解码
-    };
+    }; // end of token
 
     std::string GetModelTypeFromFile(const std::string &fileName);
 
@@ -421,8 +438,9 @@ namespace fastllm {
                               int bit, float *scales, uint8_t *oriData); // 插入一个Qlinear层的权重，量化规则为float value = scales * oriData
 
         Data &operator [] (const std::string &key);
-    };
+    }; // end of weightMap
 
+    // basic func in fastllm
     void ClearProfiler();
 
     void PrintProfiler();

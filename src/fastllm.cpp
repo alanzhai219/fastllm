@@ -34,6 +34,10 @@
 #include "fastllm-cuda.cuh"
 #endif
 
+#ifdef USE_SYCL
+#include "fastllm-sycl.h"
+#endif
+
 #ifdef PY_API
 #include <pybind11/embed.h>
 namespace py = pybind11;
