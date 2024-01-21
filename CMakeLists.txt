@@ -4,6 +4,8 @@ project(fastllm LANGUAGES CXX)
 
 option(USE_CUDA "use cuda" OFF)
 
+option(USE_SYCL "use sycl" OFF)
+
 option(PY_API "python api" OFF)
 
 option(USE_MMAP "use mmap" OFF)
@@ -13,6 +15,8 @@ option(USE_SENTENCEPIECE "use sentencepiece" OFF)
 option(USE_IVCOREX "use iluvatar corex gpu" OFF)
 
 message(STATUS "USE_CUDA: ${USE_CUDA}")
+
+message(STATUS "USE_SYCL: ${USE_SYCL}")
 
 message(STATUS "PYTHON_API: ${PY_API}")
 
@@ -32,9 +36,18 @@ endif()
 
 
 message(STATUS "CMAKE_CXX_FLAGS" ${CMAKE_CXX_FLAGS})
-set(FASTLLM_CXX_SOURCES src/fastllm.cpp src/device.cpp src/model.cpp src/executor.cpp
-        src/devices/cpu/cpudevice.cpp src/devices/cpu/cpudevicebatch.cpp
-        src/models/chatglm.cpp src/models/moss.cpp src/models/llama.cpp src/models/qwen.cpp src/models/basellm.cpp src/models/glm.cpp)
+set(FASTLLM_CXX_SOURCES src/fastllm.cpp
+                        src/device.cpp
+                        src/model.cpp
+                        src/executor.cpp
+                        src/devices/cpu/cpudevice.cpp
+                        src/devices/cpu/cpudevicebatch.cpp
+                        src/models/chatglm.cpp
+                        src/models/moss.cpp
+                        src/models/llama.cpp
+                        src/models/qwen.cpp
+                        src/models/basellm.cpp
+                        src/models/glm.cpp)
 
 include_directories(include)
 include_directories(include/utils)
@@ -60,6 +73,14 @@ if (USE_CUDA)
     set(CMAKE_CUDA_ARCHITECTURES "native")
 endif()
 
+if (USE_SYCL)
+    # enable_language(SYCL)
+    set(CMAKE_CXX_COMPILER "icpx")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl")
+    include_directories(include/devices/sycl)
+    set(FASTLLM_SYCL_SOURCES src/devices/sycl/sycldevice.cpp src/devices/sycl/fastllm-sycl.cpp)
+endif()
+
 if (USE_IVCOREX)
     set(FASTLLM_LINKED_LIBS ${FASTLLM_LINKED_LIBS} cudart)
     set(CMAKE_CUDA_ARCHITECTURES ${IVCOREX_ARCH})
@@ -82,6 +103,7 @@ else()
 add_library(fastllm OBJECT
             ${FASTLLM_CXX_SOURCES}
             ${FASTLLM_CUDA_SOURCES}
+            ${FASTLLM_SYCL_SOURCES}
             )
 target_link_libraries(fastllm PUBLIC ${FASTLLM_LINKED_LIBS})
 
@@ -109,7 +131,7 @@ target_link_libraries(benchmark fastllm)
 add_executable(apiserver example/apiserver/apiserver.cpp example/apiserver/json11.cpp)
 target_link_libraries(apiserver fastllm)
 
-add_library(fastllm_tools SHARED ${FASTLLM_CXX_SOURCES} ${FASTLLM_CUDA_SOURCES} tools/src/pytools.cpp)
+add_library(fastllm_tools SHARED ${FASTLLM_CXX_SOURCES} ${FASTLLM_CUDA_SOURCES} ${FASTLLM_SYCL_SOURCES} tools/src/pytools.cpp)
 target_link_libraries(fastllm_tools PUBLIC ${FASTLLM_LINKED_LIBS})
 
 if (${CMAKE_HOST_WIN32})

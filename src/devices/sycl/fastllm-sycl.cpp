@@ -8,19 +8,19 @@
 
 auto sycl_error_handler = [](sycl::exception_list exceptions){
     for (const std::exception_ptr &e : exceptions) {
-		try {
-			std::rethrow_exception(e);
-		}
-		catch(const sycl::exception &e) {
-			std::cout << "Caught SYCL exception: " << e.what() << "\n";
-		}
-		catch(const std::exception &e) {
-			std::cout << "Caught std exception: " << e.what() << "\n";
-		}
-		catch(...) {
-			std::cout << "Caught unknown exception\n";
-		}
-	}
+        try {
+            std::rethrow_exception(e);
+        }
+        catch(const sycl::exception &e) {
+            std::cout << "Caught SYCL exception: " << e.what() << "\n";
+        }
+        catch(const std::exception &e) {
+            std::cout << "Caught std exception: " << e.what() << "\n";
+        }
+        catch(...) {
+            std::cout << "Caught unknown exception\n";
+        }
+    }
 };
 
 struct SyclMemoryBuffer {
@@ -39,21 +39,22 @@ std::map<int, std::vector<SyclMemoryBuffer>> bigBuffersMap;
 
 void* FastllmSyclDirectMalloc(size_t size) {
     void *ret;
-    sycl::make_host(ret, size, sycl_queue);
+    const auto cur_queue = FastllmSyclGetQueue();
+    ret = sycl::malloc_device(size, cur_queue);
     if (!ret) {
-        printf("Error: SYCL error when allocating %d kB memory! Maybe there is no enough memory left on device." size >> 10);
+        std::cout << "Error: SYCL error when allocating " << (size >> 10) << " kB memory! Maybe there is no enough memory left on device.\n";
         return nullptr;
     }
     return ret;
 }
 
 void FastllmSyclDirectFree(void* ret) {
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     sycl::free(ret, cur_queue);
 }
 
 void* FastllmSyclMalloc(size_t size) {
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     sycl::device dev = cur_queue.get_device();
     auto id = dev.get_info<sycl::ext::intel::info::device::device_id>();
     if (size > 1024 * 1024) {
@@ -73,10 +74,9 @@ void* FastllmSyclMalloc(size_t size) {
             return bigBuffers[selId].data;
         }
 
-        void* ret;
-        sycl::malloc_device(ret, size);
+        void* ret = sycl::malloc_device(size, cur_queue);
         if (!ret) {
-            printf("Error: SYCL error when allocating %d kB memory! Maybe there is no enough memory left on device." size >> 10);
+            std::cout << "Error: SYCL error when allocating " << (size >> 10) << " kB memory! Maybe there is no enough memory left on device.\n";
             return nullptr;
         }
         bigBuffers.push_back(SyclMemoryBuffer(ret, size, true));
@@ -90,10 +90,9 @@ void* FastllmSyclMalloc(size_t size) {
             return syclBuffers[i].data;
         }
     }
-    void* ret;
-    sycl::malloc_device(ret, size);
+    void* ret = sycl::malloc_device(size, cur_queue);
     if (!ret) {
-        printf("Error: SYCL error when allocating %d kB memory! Maybe there is no enough memory left on device." size >> 10);
+        std::cout << "Error: SYCL error when allocating " << (size >> 10) << " kB memory! Maybe there is no enough memory left on device.\n";
         return nullptr;
     }
     syclBuffers.push_back(SyclMemoryBuffer(ret, size, true));
@@ -107,7 +106,7 @@ void FastllmSyclFree(void* ret) {
     if (syclBuffersMap.empty()) {
         return;
     }
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     sycl::device dev = cur_queue.get_device();
     int id = static_cast<int>(dev.get_info<sycl::ext::intel::info::device::device_id>());
     for (auto &it : syclBuffersMap) {
@@ -149,19 +148,19 @@ void FastllmSyclFree(void* ret) {
 
 void FastllmSyclMallocBigBuffer(size_t size) {
     void* ret;
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     sycl::device dev = cur_queue.get_device();
     int id = static_cast<int>(dev.get_info<sycl::ext::intel::info::device::device_id>());
     auto &bigBuffers = bigBuffersMap[id];
-    sycl::malloc_device(ret, size, cur_queue);
+    ret = sycl::malloc_device(size, cur_queue);
     if (!ret) {
-        printf("Error: SYCL error when allocating %d kB memory! Maybe there is no enough memory left on device." size >> 10);
+        std::cout << "Error: SYCL error when allocating " << (size >> 10) << " kB memory! Maybe there is no enough memory left on device.\n";
     }
     bigBuffers.push_back(SyclMemoryBuffer(ret, size, false));
 }
 
 void FastllmSyclClearBigBuffer() {
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     sycl::device dev = cur_queue.get_device();
     int id = static_cast<int>(dev.get_info<sycl::ext::intel::info::device::device_id>());
     if (bigBuffersMap.empty()) {
@@ -172,7 +171,7 @@ void FastllmSyclClearBigBuffer() {
         std::vector<SyclMemoryBuffer> temp;
         for (int i = 0; i < bigBuffers.size(); ++i) {
             if (!bigBuffers[i].busy) {
-                sycl::free(bigBuffers[i].data);
+                sycl::free(bigBuffers[i].data, cur_queue);
             } else {
                 temp.push_back(bigBuffers[i]);
             }
@@ -183,12 +182,12 @@ void FastllmSyclClearBigBuffer() {
 }
 
 void FastllmSyclCopyFromHostToDevice(void* dst, void* src, size_t size) {
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     cur_queue.memcpy(dst, src, size);
 }
 
 void FastllmSyclCopyFromDeviceToHost(void* dst, void* src, size_t size) {
-    const auto cur_queue = FastllmSyclGetQueue();
+    auto cur_queue = FastllmSyclGetQueue();
     cur_queue.memcpy(dst, src, size);
 }
 
@@ -221,11 +220,11 @@ void FastllmSyclMemcpy2DDeviceToDeviceBatch(void** dsts, size_t* dpitchs, void**
 
 void* FastllmSyclPrepareInput(const fastllm::Data &input) {
     void* ret;
-    if (input.dataDevice == fastllm::DataType::SYCL) {
+    if (input.dataDevice == fastllm::DataDevice::SYCL) {
         ret = (void*)input.syclData;
     } else {
         ret = (void*)(input.expansionBytes);
-        const auto cur_queue = FastllmSyclGetQueue();
+        auto cur_queue = FastllmSyclGetQueue();
         cur_queue.memcpy(ret, input.cpuData, input.expansionBytes);
     }
     return ret;
@@ -249,21 +248,22 @@ void *FastllmSyclPrepareOutput(fastllm::Data &output) {
 
 void FastllmSyclFinishOutput(fastllm::Data &output, void *data) {
     if (output.dataDevice != fastllm::DataDevice::SYCL) {
-        const auto cur_queue = FastllmSyclGetQueue();
+        auto cur_queue = FastllmSyclGetQueue();
         cur_queue.memcpy(output.cpuData, data, output.expansionBytes);
         FastllmSyclFree(data);
     }
 }
 
 void FastllmSiluKernel(float* a, float* b, int len, sycl::nd_item<3> it) {
-    size_t work_item_idx = ndi.get_local_id(2); 
-    size_t work_group_idx = ndi.get_group(2);
-    size_t work_group_size = ndi.get_local_range().get(2);
+    size_t work_item_idx = it.get_local_id(2); 
+    size_t work_group_idx = it.get_group(2);
+    size_t work_group_size = it.get_local_range().get(2);
     size_t idx = work_item_idx + work_group_idx * work_group_size;
     if (idx < len) {
         float x = a[idx];
         // TODO
-        b[idx] = x / (1.0 * sycl::native::expf(-x));
+        // b[idx] = x / (1.0 * sycl::native::expf(-x));
+        b[idx] = x / (1.0 * expf(-x));
     }
 }
 
@@ -272,15 +272,15 @@ bool FastllmSyclSilu(const fastllm::Data &input, fastllm::Data &output) {
     float *syclInput = (float *)FastllmSyclPrepareInput(input);
     float *syclOutput = (float *)FastllmSyclPrepareOutput(output);
 
-    // int threadPerBlock = std::min(256, len);
+    int threadPerBlock = std::min(256, len);
     // FastllmSiluKernel <<< (len - 1) / threadPerBlock + 1, threadPerBlock>>>(cudaInput, cudaOutput, len);
     // TODO
     auto loc_num = (len - 1) / threadPerBlock + 1;
-    sycl::range<3> glb{loc_num * threadPerBlock, 1, 1};
-    sycl::range<3> loc{threadPerBlock, 1, 1};
+    sycl::range<3> glb(loc_num * threadPerBlock, 1, 1);
+    sycl::range<3> loc(threadPerBlock, 1, 1);
     sycl::nd_range<3> nd_parallel(glb, loc); 
-    const auto cur_queue = FastllmSyclGetQueue();
-    cur_queue.parallel_for(nd_parallel, [=](sycl::nd_range<3> it){ FastllmSiluKernel(syclInput, syclOutput, len, it); });
+    auto cur_queue = FastllmSyclGetQueue();
+    cur_queue.parallel_for(nd_parallel, [=](sycl::nd_item<3> it){ FastllmSiluKernel(syclInput, syclOutput, len, it); });
 
     FastllmSyclFinishInput(input, syclInput);
     FastllmSyclFinishOutput(output, syclOutput);
@@ -302,7 +302,7 @@ public:
     sycl::platform get_platform() const {
         return m_plt;
     }
-	
+    
     void set_device(const sycl::device& dev) {
         m_dev = dev;
     }
@@ -310,7 +310,7 @@ public:
     sycl::device get_device() const {
         return m_dev;
     }
-	
+    
     void set_queue(const sycl::queue& queue) {
         m_queue = queue;
     }
@@ -318,7 +318,7 @@ public:
     sycl::queue get_queue() const {
         return m_queue;
     }
-	
+    
 private:
     // 禁止外部构造
     sycl_device_mgr();

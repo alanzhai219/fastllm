@@ -1,3 +1,4 @@
+#include <sycl/sycl.hpp>
 #include "fastllm.h"
 
 #ifdef  __cplusplus
