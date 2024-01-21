@@ -2,8 +2,8 @@
 // Created by alanzhai219 on 1/16/24.
 //
 
-#include "device/cpu/cpudevice.h"
-#include "device/sycl/sycldevice.h"
+#include "devices/cpu/cpudevice.h"
+#include "devices/sycl/sycldevice.h"
 
 #include "fastllm-sycl.h"
 #include "utils.h"
@@ -11,7 +11,7 @@
 namespace fastllm {
     SyclDevice::SyclDevice() {
         this->deviceType = "sycl";
-        this->ops["Attension"] = (BaseOperator*)(new SyclAttension());
+        this->ops["Attension"] = (BaseOperator*)(new SyclAttention());
         this->ops["CopyKVCache"] = (BaseOperator*)(new SyclCopyKVCacheOp());
         this->ops["LayerNorm"] = (BaseOperator*)(new SyclLayerNormOp());
         this->ops["RMSNorm"] = (BaseOperator*)(new SyclRMSNormOp());

@@ -7,6 +7,8 @@ option(CUDA_NO_TENSOR_CORE "Optimize for legacy CUDA GPUs which has Tensor Core.
 
 option(USE_TFACC "use tfacc" OFF)
 
+option(USE_SYCL "use sycl" OFF)
+
 option(PY_API "python api" OFF)
 
 option(USE_MMAP "use mmap" OFF)
@@ -28,6 +30,8 @@ message(STATUS "CUDA_ARCH: ${CUDA_ARCH}")
 message(STATUS "USE_TFACC: ${USE_TFACC}")
 
 message(STATUS "For legacy CUDA GPUs: ${CUDA_NO_TENSOR_CORE}")
+
+message(STATUS "USE_SYCL: ${USE_SYCL}")
 
 message(STATUS "PYTHON_API: ${PY_API}")
 
@@ -91,6 +95,14 @@ if (USE_CUDA)
     set(CMAKE_CUDA_ARCHITECTURES ${CUDA_ARCH})
 endif()
 
+if (USE_SYCL)
+    # enable_language(SYCL)
+    set(CMAKE_CXX_COMPILER "icpx")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl")
+    include_directories(include/devices/sycl)
+    set(FASTLLM_SYCL_SOURCES src/devices/sycl/sycldevice.cpp src/devices/sycl/fastllm-sycl.cpp)
+endif()
+
 if (USE_IVCOREX)
     set(FASTLLM_LINKED_LIBS ${FASTLLM_LINKED_LIBS} cudart)
     set(CMAKE_CUDA_ARCHITECTURES ${IVCOREX_ARCH})
@@ -128,6 +140,7 @@ add_library(fastllm OBJECT
             ${FASTLLM_CXX_SOURCES}
             ${FASTLLM_CUDA_SOURCES}
             ${FASTLLM_TFACC_SOURCES}
+            ${FASTLLM_SYCL_SOURCES}
             )
 target_link_libraries(fastllm PUBLIC ${FASTLLM_LINKED_LIBS})
 
@@ -160,7 +173,7 @@ if (BUILD_CLI)
     target_link_libraries(FastllmStudio_cli fastllm)
 endif()
 
-add_library(fastllm_tools SHARED ${FASTLLM_CXX_SOURCES} ${FASTLLM_CUDA_SOURCES} ${FASTLLM_TFACC_SOURCES} tools/src/pytools.cpp)
+add_library(fastllm_tools SHARED ${FASTLLM_CXX_SOURCES} ${FASTLLM_CUDA_SOURCES} ${FASTLLM_TFACC_SOURCES} ${FASTLLM_SYCL_SOURCES} tools/src/pytools.cpp)
 target_link_libraries(fastllm_tools PUBLIC ${FASTLLM_LINKED_LIBS})
 
 if (${CMAKE_HOST_WIN32})
