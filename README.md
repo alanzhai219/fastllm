@@ -48,23 +48,23 @@ bash install.sh -DUSE_CUDA=ON # 编译GPU版本
 编译完成后可以使用下列demo:
 
 ``` sh
+# openai api server
+# 需要安装依赖: pip install -r requirements-server.txt
+# 这里在8080端口打开了一个模型名为qwen的server
+python3 -m ftllm.server -t 16 -p ~/Qwen2-7B-Instruct/ --port 8080 --model_name qwen
+
 # 使用float16精度的模型对话
 python3 -m ftllm.chat -t 16 -p ~/Qwen2-7B-Instruct/ 
 
 # 在线量化为int8模型对话
 python3 -m ftllm.chat -t 16 -p ~/Qwen2-7B-Instruct/ --dtype int8
 
-# openai api server (目前处于测试调优阶段)
-# 需要安装依赖: pip install -r requirements-server.txt
-# 这里在8080端口打开了一个模型名为qwen的server
-python3 -m ftllm.server -t 16 -p ~/Qwen2-7B-Instruct/ --port 8080 --model_name qwen
-
 # webui
 # 需要安装依赖: pip install streamlit-chat
 python3 -m ftllm.webui -t 16 -p ~/Qwen2-7B-Instruct/ --port 8080
 ```
 
-以上demo均可使用参数 --help 查看详细参数
+以上demo均可使用参数 --help 查看详细参数，详细参数说明可参考 [参数说明](docs/demo_arguments.md)
 
 目前模型的支持情况见: [模型列表](docs/models.md)
 
